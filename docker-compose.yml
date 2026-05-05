@@ -1,0 +1,21 @@
+services:
+  db:
+    image: postgres:16
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+
+  family-api:
+    image: abduqodirov/family-tree-api:latest
+    restart: always
+
+  portify-api:
+    image: abduqodirov/portify-api:latest
+    restart: always
+
+  # qolgan loyihalar...
+
+networks:
+  default:
+    name: global-app-network
