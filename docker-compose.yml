@@ -1,21 +1,50 @@
 services:
-  db:
-    image: postgres:16
-    volumes:
-      - pgdata:/var/lib/postgresql/data
+  postgres:
+    image: postgres:16-alpine
+    container_name: global-postgres
+    restart: unless-stopped
+    # `.env` butunlay container'ga uzatiladi — bu dinamik DB_<NAME>_PASSWORD
+    # o'zgaruvchilarini init script ko'rishi uchun zarur.
+    env_file:
+      - .env
     environment:
-      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_USER}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./init:/docker-entrypoint-initdb.d:ro
+    # Port faqat serverning localhost'iga bog'lanadi — internet tomondan kirib bo'lmaydi.
+    # Tashqaridan (DBeaver/pgAdmin) ulanish uchun SSH tunnel ishlating.
+    # Boshqa loyihalarning Docker konteynerlari `global-postgres:5432`'ga muammosiz ulanadi.
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - global-net
 
-  family-api:
-    image: abduqodirov/family-tree-api:latest
-    restart: always
-
-  portify-api:
-    image: abduqodirov/portify-api:latest
-    restart: always
-
-  # qolgan loyihalar...
+  redis:
+    image: redis:7-alpine
+    container_name: global-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - global-net
 
 networks:
-  default:
+  global-net:
     name: global-app-network
+    driver: bridge
+
+volumes:
+  postgres-data:
+  redis-data:
